@@ -78,7 +78,7 @@ def seq2xml(seq, seq_name, out_folder):
     # Go through all blocks and add in events; each block is one AtomicSequence
     for block_ind in range(1,len(seq.block_events)+1):
         blk = seq.get_block(block_ind).__dict__
-        exists_adc = 'adc' in blk.keys()
+        exists_adc = blk.get('adc') is not None
         adc_already_added = False
         # Note: "EmptyPulse" class seems to allow variably spaced ADC sampling
         # Distinguish between delay and others
@@ -92,6 +92,8 @@ def seq2xml(seq, seq_name, out_folder):
             # Case of RF pulse
             if key == 'rf':
                 rf = blk['rf']
+                if rf is None:
+                    continue
                 rf_atom = ET.SubElement(C_block, "EXTERNALRFPULSE")
 
                 rf_atom.set("Name", f'R{rf_name_ind}')
@@ -109,6 +111,8 @@ def seq2xml(seq, seq_name, out_folder):
             gnames_map = {'gx':2, 'gy':3, 'gz':4}
             if key in ['gx', 'gy', 'gz']:
                 g = blk[key]
+                if g is None:
+                    continue
                 if g.type == "trap":
                     if g.amplitude != 0:
                         g_atom = ET.SubElement(C_block, "TRAPGRADPULSE")
@@ -252,7 +256,7 @@ def save_grad_library_info(seq, out_folder):
             # Only save a gradient file if ...(a) it has non-zero index
             #                                 (b) it is type 'grad', not 'trap'
             #      s                       and (c) its index has not been processed
-            if g_ind != 0 and len(seq.grad_library.data[g_ind]) == 3 \
+            if g_ind != 0 and seq.grad_library.get(g_ind)['type'] == 'g' \
                 and g_ind not in processed_g_inds:
                 print(f'Adding Gradient Number {g_ind}')
                 this_block = seq.get_block(nb)
@@ -261,13 +265,13 @@ def save_grad_library_info(seq, out_folder):
 
                 #TODO make it work for x/y/z
                 if axis_ind == 0:
-                    t_points = this_block.gx.t
+                    t_points = this_block.gx.tt
                     g_shape = this_block.gx.waveform
                 elif axis_ind == 1:
-                    t_points = this_block.gy.t
+                    t_points = this_block.gy.tt
                     g_shape = this_block.gy.waveform
                 elif axis_ind == 2:
-                    t_points = this_block.gz.t
+                    t_points = this_block.gz.tt
                     g_shape = this_block.gz.waveform
 
                 N = len(t_points)
